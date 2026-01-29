@@ -7,10 +7,10 @@
 <div align="center">
 
 ![visitors](https://visitor-badge.laobi.icu/badge?page_id=jingyaogong/minimind)
-[![GitHub Repo stars](https://img.shields.io/github/stars/jingyaogong/minimind?style=social)](https://github.com/jingyaogong/minimind/stargazers)
+[![GitHub Repo stars](https://img.shields.io/github/stars/jingyaogong/minimind?style=social)](https://github.com/harithoppil/minimind/stargazers)
 [![GitHub Code License](https://img.shields.io/github/license/jingyaogong/minimind)](LICENSE)
-[![GitHub last commit](https://img.shields.io/github/last-commit/jingyaogong/minimind)](https://github.com/jingyaogong/minimind/commits/master)
-[![GitHub pull request](https://img.shields.io/badge/PRs-welcome-blue)](https://github.com/jingyaogong/minimind/pulls)
+[![GitHub last commit](https://img.shields.io/github/last-commit/jingyaogong/minimind)](https://github.com/harithoppil/minimind/commits/master)
+[![GitHub pull request](https://img.shields.io/badge/PRs-welcome-blue)](https://github.com/harithoppil/minimind/pulls)
 [![Collection](https://img.shields.io/badge/🤗-MiniMind%20%20Collection-blue)](https://huggingface.co/collections/jingyaogong/minimind-66caf8d999f5c7fa64f399e5)
 
 
@@ -40,7 +40,7 @@
   experts (MoE), dataset cleaning, pretraining, supervised fine-tuning (SFT), LoRA fine-tuning, direct preference
   optimization (DPO) algorithms, reinforcement learning from AI feedback (RLAIF: PPO/GRPO/SPO), and model distillation 
   algorithms, along with the full code of the entire process.
-* **MiniMind** also expands into vision multimodal VLM: [MiniMind-V](https://github.com/jingyaogong/minimind-v).
+* **MiniMind** also expands into vision multimodal VLM: [MiniMind-V](https://github.com/harithoppil/minimind-v).
 * All core algorithm code is reconstructed from scratch using native PyTorch! It does not rely on abstract interfaces
   provided by third-party libraries.
 * This is not only a full-stage open-source reproduction of a large language model but also a tutorial for beginners in
@@ -149,7 +149,7 @@ We hope this open-source project can help LLM beginners get started quickly!
 <summary> <b>2025-04-26</b> </summary>
 
 - Important update
-- For compatibility needs, you can visit [🔗old repository content🔗](https://github.com/jingyaogong/minimind/tree/7da201a944a90ed49daef8a0265c959288dff83a).
+- For compatibility needs, you can visit [🔗old repository content🔗](https://github.com/harithoppil/minimind/tree/7da201a944a90ed49daef8a0265c959288dff83a).
 - MiniMind model parameters completely renamed, aligned with Transformers library models (unified naming).
 - generate method refactored, inheriting from GenerationMixin class.
 - 🔥 Supports popular third-party ecosystems like llama.cpp, vllm, ollama.
@@ -171,7 +171,7 @@ After this update, maintenance of the entire minimind-v1 series will be abandone
 
 - Major update since release, Release MiniMind2 Series.
 - Code almost completely refactored, using cleaner and more unified structure.
-  For compatibility with old code, you can visit [🔗old repository content🔗](https://github.com/jingyaogong/minimind/tree/6e9cd28ef9b34a0a10afbdf6f59e65cb6e628efb).
+  For compatibility with old code, you can visit [🔗old repository content🔗](https://github.com/harithoppil/minimind/tree/6e9cd28ef9b34a0a10afbdf6f59e65cb6e628efb).
 - Eliminated data preprocessing steps. Unified dataset format, switched to `jsonl` format to avoid dataset download confusion.
 - MiniMind2 series shows significant improvement compared to MiniMind-V1.
 - Minor improvements: {more standard kv-cache writing, MoE load balancing loss considered, etc.}
@@ -189,7 +189,7 @@ After this update, maintenance of the entire minimind-v1 series will be abandone
 
 **2024-10-05**
 - Extended MiniMind with multimodal capabilities---Vision
-- Check out the twin project [minimind-v](https://github.com/jingyaogong/minimind-v) for details!
+- Check out the twin project [minimind-v](https://github.com/harithoppil/minimind-v) for details!
 
 **2024-09-27**
 - 09-27 updated the preprocessing method for the pretrain dataset, abandoned preprocessing into .bin format for training to ensure text integrity (slightly sacrificing training speed).
@@ -228,7 +228,7 @@ After this update, maintenance of the entire minimind-v1 series will be abandone
 ### Step 0
 
 ```bash
-git clone https://github.com/jingyaogong/minimind.git
+git clone https://github.com/harithoppil/minimind.git
 ```
 
 ## Ⅰ Testing Existing Model Performance
@@ -1648,8 +1648,8 @@ Models generally achieve baseline performance due to small parameter scales and 
 
 ## 👨‍💻 More
 
-* <a href="https://github.com/jingyaogong/minimind/discussions/618">🔗Fine-tuning Diffusion Language Models from MiniMind-LLM</a>
-* <a href="https://github.com/jingyaogong/minimind/discussions/611">🔗Model generate method explanation</a>
+* <a href="https://github.com/harithoppil/minimind/discussions/618">🔗Fine-tuning Diffusion Language Models from MiniMind-LLM</a>
+* <a href="https://github.com/harithoppil/minimind/discussions/611">🔗Model generate method explanation</a>
 
 ---
 
@@ -1795,28 +1795,28 @@ MNN is a lightweight, high-performance AI inference engine for on-device applica
 > This document is lengthy with limited knowledge. Welcome to discuss in Issues or submit PRs to improve the project<br/>
 > Your small support is the motivation to continuously improve this project!
 
-## 🤝 [Contributors](https://github.com/jingyaogong/minimind/graphs/contributors)
+## 🤝 [Contributors](https://github.com/harithoppil/minimind/graphs/contributors)
 
-<a href="https://github.com/jingyaogong/minimind/graphs/contributors">
+<a href="https://github.com/harithoppil/minimind/graphs/contributors">
   <img src="https://contrib.rocks/image?repo=jingyaogong/minimind" />
 </a>
 
 ## 😊 Thanks
 
 <a href="https://github.com/ipfgao"><b>@ipfgao</b></a>:
-<a href="https://github.com/jingyaogong/minimind/issues/26">🔗 Training Steps Recording</a>
+<a href="https://github.com/harithoppil/minimind/issues/26">🔗 Training Steps Recording</a>
 
 <a href="https://github.com/WangRongsheng"><b>@WangRongsheng</b></a>:
-<a href="https://github.com/jingyaogong/minimind/issues/39">🔗 Large Dataset Preprocessing</a>
+<a href="https://github.com/harithoppil/minimind/issues/39">🔗 Large Dataset Preprocessing</a>
 
 <a href="https://github.com/pengqianhan"><b>@pengqianhan</b></a>:
-<a href="https://github.com/jingyaogong/minimind/issues/73">🔗 A Simple Tutorial</a>
+<a href="https://github.com/harithoppil/minimind/issues/73">🔗 A Simple Tutorial</a>
 
 <a href="https://github.com/RyanSunn"><b>@RyanSunn</b></a>:
-<a href="https://github.com/jingyaogong/minimind/issues/75">🔗 Inference Process Learning Record</a>
+<a href="https://github.com/harithoppil/minimind/issues/75">🔗 Inference Process Learning Record</a>
 
 <a href="https://github.com/Nijikadesu"><b>@Nijikadesu</b></a>:
-<a href="https://github.com/jingyaogong/minimind/issues/213">🔗 Interactive Notebook Decomposition of Project Code</a>
+<a href="https://github.com/harithoppil/minimind/issues/213">🔗 Interactive Notebook Decomposition of Project Code</a>
 
 <details close> 
 <summary> <b>Reference Links & Thanks to the Following Excellent Papers or Projects</b> </summary>
@@ -1839,7 +1839,7 @@ MNN is a lightweight, high-performance AI inference engine for on-device applica
 
 ## 🫶 Supporters
 
-<a href="https://github.com/jingyaogong/minimind/stargazers">
+<a href="https://github.com/harithoppil/minimind/stargazers">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="https://reporoster.com/stars/dark/jingyaogong/minimind"/>
       <source media="(prefers-color-scheme: light)" srcset="https://reporoster.com/stars/jingyaogong/minimind"/>
@@ -1847,7 +1847,7 @@ MNN is a lightweight, high-performance AI inference engine for on-device applica
     </picture>
 </a>
 
-<a href="https://github.com/jingyaogong/minimind/network/members">
+<a href="https://github.com/harithoppil/minimind/network/members">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="https://reporoster.com/forks/dark/jingyaogong/minimind"/>
       <source media="(prefers-color-scheme: light)" srcset="https://reporoster.com/forks/jingyaogong/minimind"/>
@@ -1889,7 +1889,7 @@ If you find MiniMind helpful in your research or work, please cite:
   title={MiniMind: Train a Tiny LLM from scratch},
   author={Jingyao Gong},
   year={2024},
-  howpublished={https://github.com/jingyaogong/minimind}
+  howpublished={https://github.com/harithoppil/minimind}
 }
 ```
 
