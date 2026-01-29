@@ -10,22 +10,59 @@ from trainer.trainer_utils import setup_seed, get_model_params
 warnings.filterwarnings('ignore')
 
 def init_model(args):
-    tokenizer = AutoTokenizer.from_pretrained(args.load_from)
+    # Use gpt2 tokenizer matching training
+    if args.load_from == 'model':
+        tokenizer = AutoTokenizer.from_pretrained('gpt2')
+    else:
+        tokenizer = AutoTokenizer.from_pretrained(args.load_from)
+        
+    special_tokens_dict = {
+        "bos_token": "<|im_start|>",
+        "eos_token": "<|im_end|>",
+        "pad_token": "<|endoftext|>",
+        "additional_special_tokens": ["<|im_start|>", "<|im_end|>"]
+    }
+    tokenizer.add_special_tokens(special_tokens_dict)
+    
+    # Set ChatML template
+    tokenizer.chat_template = (
+        "{% for message in messages %}"
+        "{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>' + '\n'}}"
+        "{% endfor %}"
+        "{% if add_generation_prompt %}"
+        "{{ '<|im_start|>assistant\n' }}"
+        "{% endif %}"
+    )
+
     if 'model' in args.load_from:
         model = MiniMindForCausalLM(MiniMindConfig(
             hidden_size=args.hidden_size,
             num_hidden_layers=args.num_hidden_layers,
             use_moe=bool(args.use_moe),
-            inference_rope_scaling=args.inference_rope_scaling
+            inference_rope_scaling=args.inference_rope_scaling,
+            vocab_size=len(tokenizer),
+            bos_token_id=tokenizer.bos_token_id,
+            eos_token_id=tokenizer.eos_token_id
         ))
         moe_suffix = '_moe' if args.use_moe else ''
         ckp = f'./{args.save_dir}/{args.weight}_{args.hidden_size}{moe_suffix}.pth'
-        model.load_state_dict(torch.load(ckp, map_location=args.device), strict=True)
+        state_dict = torch.load(ckp, map_location=args.device)
+        # Handle potential vocab size mismatch if loading old checkpoint
+        if state_dict['lm_head.weight'].shape[0] != model.lm_head.weight.shape[0]:
+            print(f"Warning: Vocab size mismatch. Loaded: {state_dict['lm_head.weight'].shape[0]}, Expected: {model.lm_head.weight.shape[0]}")
+            # Filter out mismatching layers for partial load
+            state_dict = {k: v for k, v in state_dict.items() if v.shape == model.state_dict()[k].shape}
+            
+        model.load_state_dict(state_dict, strict=False)
         if args.lora_weight != 'None':
             apply_lora(model)
             load_lora(model, f'./{args.save_dir}/lora/{args.lora_weight}_{args.hidden_size}.pth')
     else:
         model = AutoModelForCausalLM.from_pretrained(args.load_from, trust_remote_code=True)
+        
+    # Resize embeddings if needed (for AutoModel cases or partial loads)
+    model.resize_token_embeddings(len(tokenizer))
+    
     get_model_params(model, model.config)
     return model.eval().to(args.device), tokenizer
 

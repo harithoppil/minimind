@@ -2,7 +2,6 @@ datasets
 datasketch
 Flask
 Flask_Cors
-jieba
 jsonlines
 marshmallow
 matplotlib
@@ -25,6 +24,5 @@ ujson
 wandb
 streamlit
 einops
-swanlab
 torch
 torchvision

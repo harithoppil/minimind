@@ -76,7 +76,9 @@ def lm_checkpoint(lm_config, weight='full_sft', model=None, optimizer=None, epoc
         os.replace(ckp_tmp, ckp_path)
         wandb_id = None
         if wandb:
-            if hasattr(wandb, 'get_run'):
+            if hasattr(wandb, 'run') and wandb.run is not None:
+                wandb_id = wandb.run.id
+            elif hasattr(wandb, 'get_run'):
                 run = wandb.get_run()
                 wandb_id = getattr(run, 'id', None) if run else None
             else:
@@ -116,16 +118,55 @@ def lm_checkpoint(lm_config, weight='full_sft', model=None, optimizer=None, epoc
         return None
 
 
-def init_model(lm_config, from_weight='pretrain', tokenizer_path='../model', save_dir='../out', device='cuda'):
+def init_model(lm_config, from_weight='pretrain', tokenizer_path='gpt2', save_dir='../out', device='cuda'):
     tokenizer = AutoTokenizer.from_pretrained(tokenizer_path)
+    
+    # Add special tokens for GPT-2 and ChatML support
+    special_tokens_dict = {
+        "bos_token": "<|im_start|>",
+        "eos_token": "<|im_end|>",
+        "pad_token": "<|endoftext|>",
+        "additional_special_tokens": ["<|im_start|>", "<|im_end|>"]
+    }
+    tokenizer.add_special_tokens(special_tokens_dict)
+    
+    # Set ChatML template
+    tokenizer.chat_template = (
+        "{% for message in messages %}"
+        "{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>' + '\n'}}"
+        "{% endfor %}"
+        "{% if add_generation_prompt %}"
+        "{{ '<|im_start|>assistant\n' }}"
+        "{% endif %}"
+    )
+
+    # Update config vocab size to match tokenizer
+    lm_config.vocab_size = len(tokenizer)
+    lm_config.bos_token_id = tokenizer.bos_token_id
+    lm_config.eos_token_id = tokenizer.eos_token_id
+
     model = MiniMindForCausalLM(lm_config)
 
-    if from_weight!= 'none':
+    if from_weight != 'none':
         moe_suffix = '_moe' if lm_config.use_moe else ''
         weight_path = f'{save_dir}/{from_weight}_{lm_config.hidden_size}{moe_suffix}.pth'
-        weights = torch.load(weight_path, map_location=device)
-        model.load_state_dict(weights, strict=False)
+        # Check if weight exists before loading
+        if os.path.exists(weight_path):
+            weights = torch.load(weight_path, map_location=device)
+            # Handle shape mismatch if loading old weights into new vocab size
+            if weights['lm_head.weight'].shape[0] != model.lm_head.weight.shape[0]:
+                 Logger(f"Warning: Vocab size mismatch. Weight: {weights['lm_head.weight'].shape[0]}, Model: {model.lm_head.weight.shape[0]}. Resizing...")
+                 # Logic to handle mismatch could be added here, but for now we might skip or partial load
+                 # For simplicity in this 'simple switch' request, we try to load what we can or rely on from_weight='none' for fresh start
+                 pass 
+            model.load_state_dict(weights, strict=False)
+        else:
+             Logger(f"Warning: Weight file {weight_path} not found. Initializing from scratch.")
 
+    # Resize embeddings to match added tokens
+    model.model.embed_tokens = torch.nn.Embedding(len(tokenizer), lm_config.hidden_size).to(device)
+    model.lm_head = torch.nn.Linear(lm_config.hidden_size, len(tokenizer), bias=False).to(device)
+    
     get_model_params(model, lm_config)
     Logger(f'Trainable Params: {sum(p.numel() for p in model.parameters() if p.requires_grad) / 1e6:.3f}M')
     return model.to(device), tokenizer

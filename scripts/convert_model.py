@@ -23,12 +23,29 @@ def convert_torch2transformers_minimind(torch_path, transformers_path, dtype=tor
     lm_model = lm_model.to(dtype)  # 转换模型权重精度
     model_params = sum(p.numel() for p in lm_model.parameters() if p.requires_grad)
     print(f'模型参数: {model_params / 1e6} 百万 = {model_params / 1e9} B (Billion)')
+    # Prepare tokenizer (GPT-2 based with ChatML)
+    tokenizer = AutoTokenizer.from_pretrained('gpt2')
+    special_tokens_dict = {
+        "bos_token": "<|im_start|>",
+        "eos_token": "<|im_end|>",
+        "pad_token": "<|endoftext|>",
+        "additional_special_tokens": ["<|im_start|>", "<|im_end|>"]
+    }
+    tokenizer.add_special_tokens(special_tokens_dict)
+    tokenizer.chat_template = (
+        "{% for message in messages %}"
+        "{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>' + '\n'}}"
+        "{% endfor %}"
+        "{% if add_generation_prompt %}"
+        "{{ '<|im_start|>assistant\n' }}"
+        "{% endif %}"
+    )
+    
     lm_model.save_pretrained(transformers_path, safe_serialization=False)
-    tokenizer = AutoTokenizer.from_pretrained('../model/')
     tokenizer.save_pretrained(transformers_path)
     # 兼容transformers-5.0的写法
     config_path = os.path.join(transformers_path, "tokenizer_config.json")
-    json.dump({**json.load(open(config_path, 'r', encoding='utf-8')), "tokenizer_class": "PreTrainedTokenizerFast", "extra_special_tokens": {}}, open(config_path, 'w', encoding='utf-8'), indent=2, ensure_ascii=False)
+    json.dump({**json.load(open(config_path, 'r', encoding='utf-8')), "tokenizer_class": "GPT2Tokenizer", "extra_special_tokens": {}}, open(config_path, 'w', encoding='utf-8'), indent=2, ensure_ascii=False)
     print(f"模型已保存为 Transformers-MiniMind 格式: {transformers_path}")
 
 
@@ -54,11 +71,29 @@ def convert_torch2transformers_llama(torch_path, transformers_path, dtype=torch.
     llama_model.save_pretrained(transformers_path)
     model_params = sum(p.numel() for p in llama_model.parameters() if p.requires_grad)
     print(f'模型参数: {model_params / 1e6} 百万 = {model_params / 1e9} B (Billion)')
-    tokenizer = AutoTokenizer.from_pretrained('../model/')
+    
+    # Prepare tokenizer (GPT-2 based with ChatML)
+    tokenizer = AutoTokenizer.from_pretrained('gpt2')
+    special_tokens_dict = {
+        "bos_token": "<|im_start|>",
+        "eos_token": "<|im_end|>",
+        "pad_token": "<|endoftext|>",
+        "additional_special_tokens": ["<|im_start|>", "<|im_end|>"]
+    }
+    tokenizer.add_special_tokens(special_tokens_dict)
+    tokenizer.chat_template = (
+        "{% for message in messages %}"
+        "{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>' + '\n'}}"
+        "{% endfor %}"
+        "{% if add_generation_prompt %}"
+        "{{ '<|im_start|>assistant\n' }}"
+        "{% endif %}"
+    )
+    
     tokenizer.save_pretrained(transformers_path)
     # 兼容transformers-5.0的写法
     config_path = os.path.join(transformers_path, "tokenizer_config.json")
-    json.dump({**json.load(open(config_path, 'r', encoding='utf-8')), "tokenizer_class": "PreTrainedTokenizerFast", "extra_special_tokens": {}}, open(config_path, 'w', encoding='utf-8'), indent=2, ensure_ascii=False)
+    json.dump({**json.load(open(config_path, 'r', encoding='utf-8')), "tokenizer_class": "GPT2Tokenizer", "extra_special_tokens": {}}, open(config_path, 'w', encoding='utf-8'), indent=2, ensure_ascii=False)
     print(f"模型已保存为 Transformers-Llama 格式: {transformers_path}")
 
 
