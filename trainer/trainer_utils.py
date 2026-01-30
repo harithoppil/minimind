@@ -84,7 +84,7 @@ def lm_checkpoint(
     epoch=0,
     step=0,
     wandb=None,
-    save_dir="../checkpoints",
+    save_dir="checkpoints",
     **kwargs,
 ):
     os.makedirs(save_dir, exist_ok=True)
@@ -156,7 +156,7 @@ def init_model(
     lm_config,
     from_weight="pretrain",
     tokenizer_path="gpt2",
-    save_dir="../out",
+    save_dir="out",
     device="cuda",
 ):
     tokenizer = AutoTokenizer.from_pretrained(tokenizer_path)
