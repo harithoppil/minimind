@@ -1,10 +1,12 @@
 """
 训练工具函数集合
 """
+
 import os
 import sys
+
 __package__ = "trainer"
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 import random
 import math
 import numpy as np
@@ -15,17 +17,30 @@ from torch.utils.data import Sampler
 from transformers import AutoTokenizer
 from model.model_minimind import MiniMindForCausalLM
 
+
 def get_model_params(model, config):
     total = sum(p.numel() for p in model.parameters()) / 1e6
-    n_routed = getattr(config, 'n_routed_experts', getattr(config, 'num_experts', 0))
-    n_active = getattr(config, 'num_experts_per_tok', 0)
-    n_shared = getattr(config, 'n_shared_experts', 0)
-    expert = sum(p.numel() for n, p in model.named_parameters() if 'mlp.experts.0.' in n) / 1e6
-    shared_expert = sum(p.numel() for n, p in model.named_parameters() if 'mlp.shared_experts.0.' in n) / 1e6
+    n_routed = getattr(config, "n_routed_experts", getattr(config, "num_experts", 0))
+    n_active = getattr(config, "num_experts_per_tok", 0)
+    n_shared = getattr(config, "n_shared_experts", 0)
+    expert = (
+        sum(p.numel() for n, p in model.named_parameters() if "mlp.experts.0." in n)
+        / 1e6
+    )
+    shared_expert = (
+        sum(
+            p.numel()
+            for n, p in model.named_parameters()
+            if "mlp.shared_experts.0." in n
+        )
+        / 1e6
+    )
     base = total - (expert * n_routed) - (shared_expert * n_shared)
     active = base + (expert * n_active) + (shared_expert * n_shared)
-    if active < total: Logger(f'Model Params: {total:.2f}M-A{active:.2f}M')
-    else: Logger(f'Model Params: {total:.2f}M')
+    if active < total:
+        Logger(f"Model Params: {total:.2f}M-A{active:.2f}M")
+    else:
+        Logger(f"Model Params: {total:.2f}M")
 
 
 def is_main_process():
@@ -38,7 +53,7 @@ def Logger(content):
 
 
 def get_lr(current_step, total_steps, lr):
-    return lr*(0.1 + 0.45*(1 + math.cos(math.pi * current_step / total_steps)))
+    return lr * (0.1 + 0.45 * (1 + math.cos(math.pi * current_step / total_steps)))
 
 
 def init_distributed_mode():
@@ -60,76 +75,101 @@ def setup_seed(seed: int):
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
 
-def lm_checkpoint(lm_config, weight='full_sft', model=None, optimizer=None, epoch=0, step=0, wandb=None, save_dir='../checkpoints', **kwargs):
+
+def lm_checkpoint(
+    lm_config,
+    weight="full_sft",
+    model=None,
+    optimizer=None,
+    epoch=0,
+    step=0,
+    wandb=None,
+    save_dir="../checkpoints",
+    **kwargs,
+):
     os.makedirs(save_dir, exist_ok=True)
-    moe_path = '_moe' if lm_config.use_moe else ''
-    ckp_path = f'{save_dir}/{weight}_{lm_config.hidden_size}{moe_path}.pth'
-    resume_path = f'{save_dir}/{weight}_{lm_config.hidden_size}{moe_path}_resume.pth'
+    moe_path = "_moe" if lm_config.use_moe else ""
+    ckp_path = f"{save_dir}/{weight}_{lm_config.hidden_size}{moe_path}.pth"
+    resume_path = f"{save_dir}/{weight}_{lm_config.hidden_size}{moe_path}_resume.pth"
 
     if model is not None:
-        raw_model = model.module if isinstance(model, DistributedDataParallel) else model
-        raw_model = getattr(raw_model, '_orig_mod', raw_model)
+        raw_model = (
+            model.module if isinstance(model, DistributedDataParallel) else model
+        )
+        raw_model = getattr(raw_model, "_orig_mod", raw_model)
         state_dict = raw_model.state_dict()
         state_dict = {k: v.half().cpu() for k, v in state_dict.items()}
-        ckp_tmp = ckp_path + '.tmp'
+        ckp_tmp = ckp_path + ".tmp"
         torch.save(state_dict, ckp_tmp)
         os.replace(ckp_tmp, ckp_path)
         wandb_id = None
         if wandb:
-            if hasattr(wandb, 'run') and wandb.run is not None:
+            if hasattr(wandb, "run") and wandb.run is not None:
                 wandb_id = wandb.run.id
-            elif hasattr(wandb, 'get_run'):
+            elif hasattr(wandb, "get_run"):
                 run = wandb.get_run()
-                wandb_id = getattr(run, 'id', None) if run else None
+                wandb_id = getattr(run, "id", None) if run else None
             else:
-                wandb_id = getattr(wandb, 'id', None)
+                wandb_id = getattr(wandb, "id", None)
 
         resume_data = {
-            'model': state_dict,
-            'optimizer': optimizer.state_dict(),
-            'epoch': epoch,
-            'step': step,
-            'world_size': dist.get_world_size() if dist.is_initialized() else 1,
-            'wandb_id': wandb_id
+            "model": state_dict,
+            "optimizer": optimizer.state_dict(),
+            "epoch": epoch,
+            "step": step,
+            "world_size": dist.get_world_size() if dist.is_initialized() else 1,
+            "wandb_id": wandb_id,
         }
         for key, value in kwargs.items():
             if value is not None:
-                if hasattr(value, 'state_dict'):
-                    raw_value = value.module if isinstance(value, DistributedDataParallel) else value
-                    raw_value = getattr(raw_value, '_orig_mod', raw_value)
+                if hasattr(value, "state_dict"):
+                    raw_value = (
+                        value.module
+                        if isinstance(value, DistributedDataParallel)
+                        else value
+                    )
+                    raw_value = getattr(raw_value, "_orig_mod", raw_value)
                     resume_data[key] = raw_value.state_dict()
                 else:
                     resume_data[key] = value
 
-        resume_tmp = resume_path + '.tmp'
+        resume_tmp = resume_path + ".tmp"
         torch.save(resume_data, resume_tmp)
         os.replace(resume_tmp, resume_path)
         del state_dict, resume_data
         torch.cuda.empty_cache()
     else:  # 加载模式
         if os.path.exists(resume_path):
-            ckp_data = torch.load(resume_path, map_location='cpu')
-            saved_ws = ckp_data.get('world_size', 1)
+            ckp_data = torch.load(resume_path, map_location="cpu")
+            saved_ws = ckp_data.get("world_size", 1)
             current_ws = dist.get_world_size() if dist.is_initialized() else 1
             if saved_ws != current_ws:
-                ckp_data['step'] = ckp_data['step'] * saved_ws // current_ws
-                Logger(f'GPU数量变化({saved_ws}→{current_ws})，step已自动转换为{ckp_data["step"]}')
+                ckp_data["step"] = ckp_data["step"] * saved_ws // current_ws
+                Logger(
+                    f'GPU数量变化({saved_ws}→{current_ws})，step已自动转换为{ckp_data["step"]}'
+                )
             return ckp_data
         return None
 
 
-def init_model(lm_config, from_weight='pretrain', tokenizer_path='gpt2', save_dir='../out', device='cuda'):
+def init_model(
+    lm_config,
+    from_weight="pretrain",
+    tokenizer_path="gpt2",
+    save_dir="../out",
+    device="cuda",
+):
     tokenizer = AutoTokenizer.from_pretrained(tokenizer_path)
-    
+
     # Add special tokens for GPT-2 and ChatML support
     special_tokens_dict = {
         "bos_token": "<|im_start|>",
         "eos_token": "<|im_end|>",
         "pad_token": "<|endoftext|>",
-        "additional_special_tokens": ["<|im_start|>", "<|im_end|>"]
+        "additional_special_tokens": ["<|im_start|>", "<|im_end|>"],
     }
     tokenizer.add_special_tokens(special_tokens_dict)
-    
+
     # Set ChatML template
     tokenizer.chat_template = (
         "{% for message in messages %}"
@@ -147,28 +187,35 @@ def init_model(lm_config, from_weight='pretrain', tokenizer_path='gpt2', save_di
 
     model = MiniMindForCausalLM(lm_config)
 
-    if from_weight != 'none':
-        moe_suffix = '_moe' if lm_config.use_moe else ''
-        weight_path = f'{save_dir}/{from_weight}_{lm_config.hidden_size}{moe_suffix}.pth'
+    if from_weight != "none":
+        moe_suffix = "_moe" if lm_config.use_moe else ""
+        weight_path = (
+            f"{save_dir}/{from_weight}_{lm_config.hidden_size}{moe_suffix}.pth"
+        )
         # Check if weight exists before loading
         if os.path.exists(weight_path):
             weights = torch.load(weight_path, map_location=device)
             # Handle shape mismatch if loading old weights into new vocab size
-            if weights['lm_head.weight'].shape[0] != model.lm_head.weight.shape[0]:
-                 Logger(f"Warning: Vocab size mismatch. Weight: {weights['lm_head.weight'].shape[0]}, Model: {model.lm_head.weight.shape[0]}. Resizing...")
-                 # Logic to handle mismatch could be added here, but for now we might skip or partial load
-                 # For simplicity in this 'simple switch' request, we try to load what we can or rely on from_weight='none' for fresh start
-                 pass 
+            if weights["lm_head.weight"].shape[0] != model.lm_head.weight.shape[0]:
+                Logger(
+                    f"Warning: Vocab size mismatch. Weight: {weights['lm_head.weight'].shape[0]}, Model: {model.lm_head.weight.shape[0]}. Resizing..."
+                )
+                # Logic to handle mismatch could be added here, but for now we might skip or partial load
+                # For simplicity in this 'simple switch' request, we try to load what we can or rely on from_weight='none' for fresh start
+                pass
             model.load_state_dict(weights, strict=False)
         else:
-             Logger(f"Warning: Weight file {weight_path} not found. Initializing from scratch.")
+            Logger(
+                f"Warning: Weight file {weight_path} not found. Initializing from scratch."
+            )
 
-    # Resize embeddings to match added tokens
-    model.model.embed_tokens = torch.nn.Embedding(len(tokenizer), lm_config.hidden_size).to(device)
-    model.lm_head = torch.nn.Linear(lm_config.hidden_size, len(tokenizer), bias=False).to(device)
-    
+    # ✅ FIXED: Only resize if needed, preserve existing weights
+    if model.get_input_embeddings().num_embeddings != len(tokenizer):
+        model.resize_token_embeddings(len(tokenizer))
     get_model_params(model, lm_config)
-    Logger(f'Trainable Params: {sum(p.numel() for p in model.parameters() if p.requires_grad) / 1e6:.3f}M')
+    Logger(
+        f"Trainable Params: {sum(p.numel() for p in model.parameters() if p.requires_grad) / 1e6:.3f}M"
+    )
     return model.to(device), tokenizer
 
 
