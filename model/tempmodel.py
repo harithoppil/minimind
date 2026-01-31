@@ -142,6 +142,7 @@ class TempModelConfig(PretrainedConfig):
             num_experts_per_tok: int = 2,
             n_routed_experts: int = 4,
             n_shared_experts: int = 1,
+            v_head_expansion: int = 2,
             scoring_func: str = 'softmax',
             aux_loss_alpha: float = 0.01,
             seq_aux: bool = True,
