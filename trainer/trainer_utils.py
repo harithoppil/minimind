@@ -1,5 +1,5 @@
 """
-训练工具函数集合
+Training utility functions collection
 """
 
 import os
@@ -16,6 +16,7 @@ from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import Sampler
 from transformers import AutoTokenizer
 from model.model_minimind import MiniMindForCausalLM
+from model.tempmodel import TempModelForCausalLM, TempModelConfig
 
 
 def get_model_params(model, config):
@@ -58,7 +59,7 @@ def get_lr(current_step, total_steps, lr):
 
 def init_distributed_mode():
     if int(os.environ.get("RANK", -1)) == -1:
-        return 0  # 非DDP模式
+        return 0  # Non-DDP mode
 
     dist.init_process_group(backend="nccl")
     local_rank = int(os.environ["LOCAL_RANK"])
@@ -138,7 +139,7 @@ def lm_checkpoint(
         os.replace(resume_tmp, resume_path)
         del state_dict, resume_data
         torch.cuda.empty_cache()
-    else:  # 加载模式
+    else:  # Load mode
         if os.path.exists(resume_path):
             ckp_data = torch.load(resume_path, map_location="cpu")
             saved_ws = ckp_data.get("world_size", 1)
@@ -146,7 +147,7 @@ def lm_checkpoint(
             if saved_ws != current_ws:
                 ckp_data["step"] = ckp_data["step"] * saved_ws // current_ws
                 Logger(
-                    f'GPU数量变化({saved_ws}→{current_ws})，step已自动转换为{ckp_data["step"]}'
+                    f'GPU count changed ({saved_ws}→{current_ws}), step automatically converted to {ckp_data["step"]}'
                 )
             return ckp_data
         return None
@@ -187,8 +188,11 @@ def init_model(
 
     model = MiniMindForCausalLM(lm_config)
 
+    if isinstance(lm_config, TempModelConfig):
+        model = TempModelForCausalLM(lm_config)
+
     if from_weight != "none":
-        moe_suffix = "_moe" if lm_config.use_moe else ""
+        moe_suffix = "_moe" if getattr(lm_config, "use_moe", False) else ""
         weight_path = (
             f"{save_dir}/{from_weight}_{lm_config.hidden_size}{moe_suffix}.pth"
         )

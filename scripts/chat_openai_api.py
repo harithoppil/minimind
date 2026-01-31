@@ -7,7 +7,7 @@ client = OpenAI(
 stream = True
 conversation_history_origin = []
 conversation_history = conversation_history_origin.copy()
-history_messages_num = 0  # 必须设置为偶数（Q+A），为0则不携带历史对话
+history_messages_num = 0  # Must be set to an even number (Q+A), 0 means no conversation history
 while True:
     query = input('[Q]: ')
     conversation_history.append({"role": "user", "content": query})

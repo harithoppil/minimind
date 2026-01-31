@@ -71,7 +71,7 @@ class SFTDataset(Dataset):
         input_ids = self.tokenizer(prompt).input_ids[:self.max_length]
         input_ids += [self.tokenizer.pad_token_id] * (self.max_length - len(input_ids))
         labels = self.generate_labels(input_ids)
-        # # === 调试打印 ===
+        # # === Debug print ===
         # print(f"\n--- Sample {index} ---")
         # for i, (x, y) in enumerate(zip(input_ids[:-1], labels[1:])):
         #     print(f"{i:3d}: X={self.tokenizer.decode([x])!r:16s} ---> Y={self.tokenizer.decode([input_ids[i+1]])!r:16s} label={y}")
@@ -94,8 +94,8 @@ class DPODataset(Dataset):
 
     def __getitem__(self, index):
         item = self.data[index]
-        chosen = item['chosen']  # 是一个 list，里面包含若干 {role, content}
-        rejected = item['rejected']  # 同上
+        chosen = item['chosen']  # A list containing several {role, content} entries
+        rejected = item['rejected']  # Same as above
         chosen_prompt = self.tokenizer.apply_chat_template(
             chosen, tokenize=False, add_generation_prompt=False
         )
@@ -172,7 +172,7 @@ class RLAIFDataset(Dataset):
         return self.tokenizer.apply_chat_template(
             messages[:-1],
             tokenize=False,
-            add_generation_prompt=True  # 这里需要True
+            add_generation_prompt=True  # True is required here
         ), answer
 
     def __getitem__(self, index):

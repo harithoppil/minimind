@@ -33,7 +33,7 @@ warnings.filterwarnings("ignore")
 
 
 class AutoAdaptiveValueTracker:
-    """SPO自适应价值追踪器"""
+    """SPO Adaptive Value Tracker"""
 
     def __init__(
         self, rho_mode="kl", rho_const=0.9, D_half=0.06, clip_lower=0.5, clip_upper=0.96
@@ -80,7 +80,7 @@ class AutoAdaptiveValueTracker:
 
 
 def calculate_rewards(prompts, responses, reward_model, reward_tokenizer):
-    """整合所有奖励函数计算总奖励"""
+    """Integrate all reward functions to calculate total reward"""
 
     def reasoning_model_reward(rewards):
         pattern = r"^<think>\n.*?\n</think>\n<answer>\n.*?\n</answer>$"
@@ -184,7 +184,7 @@ def spo_train_epoch(
             ]
 
         with torch.no_grad():
-            # DDP 模型需要使用 .module 访问 generate 方法
+            # DDP model needs to use .module to access generate method
             model_for_gen = (
                 model.module if isinstance(model, DistributedDataParallel) else model
             )
@@ -248,7 +248,7 @@ def spo_train_epoch(
         unnormalized_baselines = baselines * (2 * scale) - scale  # [B]
         advantages = rewards - unnormalized_baselines  # [B]
 
-        # 直接使用 baseline 提供的优势估计，只做裁剪防止梯度爆炸。不再做 batch 内归一化，因为 baseline 已经提供了跨 batch 的稳定基线
+        # Use baseline-provided advantage estimate directly, only clip to prevent gradient explosion. No batch normalization since baseline already provides stable cross-batch baseline
         advantages = advantages.clamp(-5.0, 5.0)
 
         is_eos = completion_ids == tokenizer.eos_token_id  # [B, R]
@@ -332,7 +332,7 @@ def spo_train_epoch(
                 epoch=epoch,
                 step=step,
                 wandb=wandb,
-                save_dir="../checkpoints",
+                save_dir="checkpoints",
                 scheduler=scheduler,
             )
             model.train()
@@ -346,85 +346,85 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="MiniMind SPO (Self-Play Optimization)"
     )
-    parser.add_argument("--save_dir", type=str, default="out", help="模型保存目录")
+    parser.add_argument("--save_dir", type=str, default="out", help="Model save directory")
     parser.add_argument(
-        "--save_weight", default="spo", type=str, help="保存权重的前缀名"
+        "--save_weight", default="spo", type=str, help="Prefix for saved weight files"
     )
-    parser.add_argument("--epochs", type=int, default=1, help="训练轮数")
+    parser.add_argument("--epochs", type=int, default=1, help="Number of training epochs")
     parser.add_argument("--batch_size", type=int, default=2, help="batch size")
-    parser.add_argument("--learning_rate", type=float, default=1e-7, help="初始学习率")
+    parser.add_argument("--learning_rate", type=float, default=1e-7, help="Initial learning rate")
     parser.add_argument(
         "--device",
         type=str,
         default="cuda:0" if torch.cuda.is_available() else "cpu",
-        help="训练设备",
+        help="Training device",
     )
-    parser.add_argument("--dtype", type=str, default="bfloat16", help="混合精度类型")
-    parser.add_argument("--num_workers", type=int, default=8, help="数据加载线程数")
+    parser.add_argument("--dtype", type=str, default="bfloat16", help="Mixed precision type")
+    parser.add_argument("--num_workers", type=int, default=8, help="Data loader worker threads")
     parser.add_argument(
-        "--accumulation_steps", type=int, default=4, help="梯度累积步数"
+        "--accumulation_steps", type=int, default=4, help="Gradient accumulation steps"
     )
-    parser.add_argument("--grad_clip", type=float, default=1.0, help="梯度裁剪阈值")
-    parser.add_argument("--log_interval", type=int, default=1, help="日志打印间隔")
-    parser.add_argument("--save_interval", type=int, default=10, help="模型保存间隔")
-    parser.add_argument("--hidden_size", default=512, type=int, help="隐藏层维度")
-    parser.add_argument("--num_hidden_layers", default=8, type=int, help="隐藏层数量")
+    parser.add_argument("--grad_clip", type=float, default=1.0, help="Gradient clipping threshold")
+    parser.add_argument("--log_interval", type=int, default=1, help="Logging interval")
+    parser.add_argument("--save_interval", type=int, default=10, help="Model save interval")
+    parser.add_argument("--hidden_size", default=512, type=int, help="Hidden layer dimension")
+    parser.add_argument("--num_hidden_layers", default=8, type=int, help="Number of hidden layers")
     parser.add_argument(
         "--use_moe",
         default=0,
         type=int,
         choices=[0, 1],
-        help="是否使用MoE架构（0=否，1=是）",
+        help="Whether to use MoE architecture (0=no, 1=yes)",
     )
-    parser.add_argument("--max_seq_len", default=66, type=int, help="Prompt最大长度")
-    parser.add_argument("--max_gen_len", type=int, default=1536, help="生成的最大长度")
+    parser.add_argument("--max_seq_len", default=66, type=int, help="Maximum prompt length")
+    parser.add_argument("--max_gen_len", type=int, default=1536, help="Maximum generation length")
     parser.add_argument(
         "--data_path",
         type=str,
         default="dataset/rlaif-mini.jsonl",
-        help="RLAIF数据路径",
+        help="RLAIF data path",
     )
-    parser.add_argument("--beta", type=float, default=0.02, help="KL惩罚系数")
+    parser.add_argument("--beta", type=float, default=0.02, help="KL penalty coefficient")
     parser.add_argument(
         "--reasoning",
         type=int,
         default=1,
         choices=[0, 1],
-        help="推理模型类型（0=普通模型，1=推理模型）",
+        help="Reasoning model type (0=regular model, 1=reasoning model)",
     )
     parser.add_argument(
         "--reward_model_path",
         type=str,
         default="../internlm2-1_8b-reward",
-        help="Reward模型路径",
+        help="Reward model path",
     )
     parser.add_argument(
         "--from_resume",
         default=0,
         type=int,
         choices=[0, 1],
-        help="是否自动检测&续训（0=否，1=是）",
+        help="Whether to auto-detect and resume training (0=no, 1=yes)",
     )
-    parser.add_argument("--use_wandb", action="store_true", help="是否使用wandb")
+    parser.add_argument("--use_wandb", action="store_true", help="Whether to use wandb")
     parser.add_argument(
-        "--wandb_project", type=str, default="MiniMind-SPO", help="wandb项目名"
+        "--wandb_project", type=str, default="MiniMind-SPO", help="wandb project name"
     )
     parser.add_argument(
         "--use_compile",
         default=0,
         type=int,
         choices=[0, 1],
-        help="是否使用torch.compile加速（0=否，1=是）",
+        help="Whether to use torch.compile acceleration (0=no, 1=yes)",
     )
     args = parser.parse_args()
 
-    # ========== 1. 初始化环境和随机种子 ==========
+    # ========== 1. Initialize environment and random seed ==========
     local_rank = init_distributed_mode()
     if dist.is_initialized():
         args.device = f"cuda:{local_rank}"
     setup_seed(42 + (dist.get_rank() if dist.is_initialized() else 0))
 
-    # ========== 2. 配置目录、模型参数、检查ckp ==========
+    # ========== 2. Configure directories, model parameters, check checkpoint ==========
     os.makedirs(args.save_dir, exist_ok=True)
     lm_config = MiniMindConfig(
         hidden_size=args.hidden_size,
@@ -433,19 +433,19 @@ if __name__ == "__main__":
         use_moe=bool(args.use_moe),
     )
     ckp_data = (
-        lm_checkpoint(lm_config, weight=args.save_weight, save_dir="../checkpoints")
+        lm_checkpoint(lm_config, weight=args.save_weight, save_dir="checkpoints")
         if args.from_resume == 1
         else None
     )
 
-    # ========== 3. 设置混合精度 ==========
+    # ========== 3. Set up mixed precision ==========
     device_type = "cuda" if "cuda" in args.device else "cpu"
     dtype = torch.bfloat16 if args.dtype == "bfloat16" else torch.float16
     autocast_ctx = (
         nullcontext() if device_type == "cpu" else torch.cuda.amp.autocast(dtype=dtype)
     )
 
-    # ========== 4. 配wandb ==========
+    # ========== 4. Configure wandb ==========
     wandb = None
     if args.use_wandb and is_main_process():
         import wandb
@@ -457,17 +457,17 @@ if __name__ == "__main__":
             project=args.wandb_project, name=wandb_run_name, id=wandb_id, resume=resume
         )
 
-    # ========== 5. 初始化模型（Policy, Ref, Reward）和Value Tracker、数据 ==========
+    # ========== 5. Initialize models (Policy, Ref, Reward) and Value Tracker, data ==========
     base_weight = "reason" if args.reasoning == 1 else "full_sft"
-    # Policy模型
+    # Policy model
     model, tokenizer = init_model(lm_config, base_weight, device=args.device)
     if args.use_compile == 1:
         model = torch.compile(model)
         Logger("torch.compile enabled")
-    # Reference模型
+    # Reference model
     ref_model, _ = init_model(lm_config, base_weight, device=args.device)
     ref_model = ref_model.eval().requires_grad_(False)
-    # Reward模型
+    # Reward model
     reward_model = AutoModel.from_pretrained(
         args.reward_model_path, torch_dtype=torch.float16, trust_remote_code=True
     )
@@ -493,7 +493,7 @@ if __name__ == "__main__":
         optimizer, T_max=total_optimizer_steps, eta_min=args.learning_rate / 10
     )
 
-    # ========== 6. 从ckp恢复状态 ==========
+    # ========== 6. Resume state from checkpoint ==========
     start_epoch, start_step = 0, 0
     if ckp_data:
         model.load_state_dict(ckp_data["model"])
@@ -502,12 +502,12 @@ if __name__ == "__main__":
         start_epoch = ckp_data["epoch"]
         start_step = ckp_data.get("step", 0)
 
-    # ========== 7. DDP包模型 ==========
+    # ========== 7. Wrap model with DDP ==========
     if dist.is_initialized():
         model._ddp_params_and_buffers_to_ignore = {"freqs_cos", "freqs_sin"}
         model = DistributedDataParallel(model, device_ids=[local_rank])
 
-    # ========== 8. 开始训练 ==========
+    # ========== 8. Start training ==========
     for epoch in range(start_epoch, args.epochs):
         train_sampler and train_sampler.set_epoch(epoch)
         setup_seed(42 + epoch)
@@ -524,7 +524,7 @@ if __name__ == "__main__":
         )
         if skip > 0:
             Logger(
-                f"Epoch [{epoch + 1}/{args.epochs}]: 跳过前{start_step}个step，从step {start_step + 1}开始"
+                f"Epoch [{epoch + 1}/{args.epochs}]: Skipping first {start_step} steps, starting from step {start_step + 1}"
             )
             spo_train_epoch(
                 epoch,
@@ -550,6 +550,6 @@ if __name__ == "__main__":
                 wandb,
             )
 
-    # ========== 9. 清理分布进程 ==========
+    # ========== 9. Cleanup distributed processes ==========
     if dist.is_initialized():
         dist.destroy_process_group()

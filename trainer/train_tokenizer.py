@@ -1,4 +1,4 @@
-# 注：不建议再重复训练tokenizer（“词典”），MiniMind已自带，此脚本仅供学习和参考。基于不同词典训练的模型将导致输出完全不统一，降低社区的模型复用性
+# Note: Not recommended to retrain the tokenizer ("vocabulary"), MiniMind already includes one, this script is for learning and reference only. Models trained based on different vocabularies will produce completely inconsistent outputs, reducing community model reusability
 # Note: It is not recommended to re-train the tokenizer. MiniMind already includes one. This script is for learning and reference only. Training models with different tokenizers will lead to inconsistent outputs and reduce model reusability in the community.
 import os
 import json
@@ -11,7 +11,7 @@ VOCAB_SIZE = 6400
 def get_texts(data_path):
     with open(data_path, 'r', encoding='utf-8') as f:
         for i, line in enumerate(f):
-            if i >= 10000: break # 实验性，可只用前10000行测试
+            if i >= 10000: break # Experimental, can use only first 10000 lines for testing
             data = json.loads(line)
             yield data['text']
 
@@ -88,9 +88,9 @@ def eval_tokenizer(tokenizer_dir):
     from transformers import AutoTokenizer
     tokenizer = AutoTokenizer.from_pretrained(tokenizer_dir)
     messages = [
-        {"role": "system", "content": "你是一个优秀的聊天机器人，总是给我正确的回应！"},
-        {"role": "user", "content": '你来自哪里？'},
-        {"role": "assistant", "content": '我来自地球'}
+        {"role": "system", "content": "You are an excellent chatbot, always giving me the correct response!"},
+        {"role": "user", "content": 'Where are you from?'},
+        {"role": "assistant", "content": 'I am from Earth'}
     ]
     new_prompt = tokenizer.apply_chat_template(
         messages,
@@ -101,15 +101,15 @@ def eval_tokenizer(tokenizer_dir):
 
 
     print('-'*100)
-    print('tokenizer词表长度：', len(tokenizer))
+    print('Tokenizer vocabulary length:', len(tokenizer))
     model_inputs = tokenizer(new_prompt)
-    print('encoder长度：', len(model_inputs['input_ids']))
+    print('Encoder length:', len(model_inputs['input_ids']))
     response = tokenizer.decode(model_inputs['input_ids'], skip_special_tokens=False)
-    print('decoder一致性：', response == new_prompt, "\n")
+    print('Decoder consistency:', response == new_prompt, "\n")
 
 
     print('-'*100)
-    print('流式解码（字节缓冲）测试：')
+    print('Streaming decode (byte buffer) test:')
     input_ids = model_inputs['input_ids']
     token_cache = []
     for tid in input_ids:

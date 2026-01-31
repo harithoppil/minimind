@@ -67,12 +67,12 @@ def train_epoch(
         for param_group in optimizer.param_groups:
             param_group["lr"] = lr
 
-        # 前向传播（学生模型）
+        # Forward pass (student model)
         with autocast_ctx:
             res = model(input_ids)
             student_logits = res.logits[..., :-1, :].contiguous()
 
-        # 教师模型前向传播（只在eval & no_grad）
+        # Teacher model forward pass (only in eval & no_grad)
         if teacher_model is not None:
             with torch.no_grad():
                 teacher_logits = (
@@ -81,7 +81,7 @@ def train_epoch(
                 vocab_size_student = student_logits.size(-1)
                 teacher_logits = teacher_logits[..., :vocab_size_student]
 
-        # ========== 计算损失 ==========
+        # ========== Calculate losses ==========
         # 1) Ground-Truth CE Loss
         shift_labels = labels[..., 1:].contiguous()
         loss_mask_flat = loss_mask.view(-1)
@@ -109,7 +109,7 @@ def train_epoch(
         else:
             distill_loss = torch.tensor(0.0, device=args.device)
 
-        # 3) 总损失 = alpha * CE + (1-alpha) * Distill
+        # 3) Total loss = alpha * CE + (1-alpha) * Distill
         loss = (alpha * ce_loss + (1 - alpha) * distill_loss) / args.accumulation_steps
 
         scaler.scale(loss).backward()
@@ -166,7 +166,7 @@ def train_epoch(
                 epoch=epoch,
                 step=step,
                 wandb=wandb,
-                save_dir="../checkpoints",
+                save_dir="checkpoints",
             )
             model.train()
             del state_dict
@@ -185,106 +185,106 @@ def train_epoch(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="MiniMind Knowledge Distillation")
-    parser.add_argument("--save_dir", type=str, default="out", help="模型保存目录")
+    parser.add_argument("--save_dir", type=str, default="out", help="Model save directory")
     parser.add_argument(
-        "--save_weight", default="full_dist", type=str, help="保存权重的前缀名"
+        "--save_weight", default="full_dist", type=str, help="Prefix for saved weight files"
     )
-    parser.add_argument("--epochs", type=int, default=6, help="训练轮数")
+    parser.add_argument("--epochs", type=int, default=6, help="Number of training epochs")
     parser.add_argument("--batch_size", type=int, default=32, help="batch size")
-    parser.add_argument("--learning_rate", type=float, default=5e-6, help="初始学习率")
+    parser.add_argument("--learning_rate", type=float, default=5e-6, help="Initial learning rate")
     parser.add_argument(
         "--device",
         type=str,
         default="cuda:0" if torch.cuda.is_available() else "cpu",
-        help="训练设备",
+        help="Training device",
     )
-    parser.add_argument("--dtype", type=str, default="bfloat16", help="混合精度类型")
-    parser.add_argument("--num_workers", type=int, default=8, help="数据加载线程数")
+    parser.add_argument("--dtype", type=str, default="bfloat16", help="Mixed precision type")
+    parser.add_argument("--num_workers", type=int, default=8, help="Data loader worker threads")
     parser.add_argument(
-        "--accumulation_steps", type=int, default=1, help="梯度累积步数"
+        "--accumulation_steps", type=int, default=1, help="Gradient accumulation steps"
     )
-    parser.add_argument("--grad_clip", type=float, default=1.0, help="梯度裁剪阈值")
-    parser.add_argument("--log_interval", type=int, default=100, help="日志打印间隔")
-    parser.add_argument("--save_interval", type=int, default=100, help="模型保存间隔")
+    parser.add_argument("--grad_clip", type=float, default=1.0, help="Gradient clipping threshold")
+    parser.add_argument("--log_interval", type=int, default=100, help="Logging interval")
+    parser.add_argument("--save_interval", type=int, default=100, help="Model save interval")
     parser.add_argument(
         "--max_seq_len",
         type=int,
         default=340,
-        help="训练的最大截断长度（中文1token≈1.5~1.7字符）",
+        help="Maximum truncation length for training (Chinese: 1 token ≈ 1.5-1.7 characters)",
     )
     parser.add_argument(
         "--data_path",
         type=str,
         default="dataset/sft_mini_512.jsonl",
-        help="训练数据路径",
+        help="Training data path",
     )
     parser.add_argument(
-        "--student_hidden_size", default=512, type=int, help="学生模型隐藏层维度"
+        "--student_hidden_size", default=512, type=int, help="Student model hidden layer dimension"
     )
     parser.add_argument(
-        "--student_num_layers", default=8, type=int, help="学生模型隐藏层数量"
+        "--student_num_layers", default=8, type=int, help="Student model number of hidden layers"
     )
     parser.add_argument(
-        "--teacher_hidden_size", default=768, type=int, help="教师模型隐藏层维度"
+        "--teacher_hidden_size", default=768, type=int, help="Teacher model hidden layer dimension"
     )
     parser.add_argument(
-        "--teacher_num_layers", default=16, type=int, help="教师模型隐藏层数量"
+        "--teacher_num_layers", default=16, type=int, help="Teacher model number of hidden layers"
     )
     parser.add_argument(
         "--use_moe",
         default=0,
         type=int,
         choices=[0, 1],
-        help="是否使用MoE架构（0=否，1=是）",
+        help="Whether to use MoE architecture (0=no, 1=yes)",
     )
     parser.add_argument(
         "--from_student_weight",
         default="full_sft",
         type=str,
-        help="学生模型基于哪个权重",
+        help="Student model base weight",
     )
     parser.add_argument(
         "--from_teacher_weight",
         default="full_sft",
         type=str,
-        help="教师模型基于哪个权重",
+        help="Teacher model base weight",
     )
     parser.add_argument(
         "--from_resume",
         default=0,
         type=int,
         choices=[0, 1],
-        help="是否自动检测&续训（0=否，1=是）",
+        help="Whether to auto-detect and resume training (0=no, 1=yes)",
     )
     parser.add_argument(
         "--alpha",
         default=0.5,
         type=float,
-        help="CE损失权重，总损失=alpha*CE+(1-alpha)*KL",
+        help="CE loss weight, total_loss=alpha*CE+(1-alpha)*KL",
     )
     parser.add_argument(
-        "--temperature", default=1.5, type=float, help="蒸馏温度（推荐范围1.0-2.0）"
+        "--temperature", default=1.5, type=float, help="Distillation temperature (recommended 1.0-2.0)"
     )
-    parser.add_argument("--use_wandb", action="store_true", help="是否使用wandb")
+    parser.add_argument("--use_wandb", action="store_true", help="Whether to use wandb")
     parser.add_argument(
-        "--wandb_project", type=str, default="MiniMind-Distillation", help="wandb项目名"
+        "--wandb_project", type=str, default="MiniMind-Distillation", help="wandb project name"
     )
     parser.add_argument(
         "--use_compile",
         default=0,
         type=int,
         choices=[0, 1],
-        help="是否使用torch.compile加速（0=否，1=是）",
+        help="Whether to use torch.compile acceleration (0=no, 1=yes)",
     )
     args = parser.parse_args()
 
-    # ========== 1. 初始化环境和随机种子 ==========
+    # ========== 1. Initialize environment and random seed ==========
     local_rank = init_distributed_mode()
     if dist.is_initialized():
         args.device = f"cuda:{local_rank}"
     setup_seed(42 + (dist.get_rank() if dist.is_initialized() else 0))
 
-    # ========== 2. 配置目录、模型参数、检查ckp ==========
+    # ========== 2. Configure directories, model parameters, check checkpoint ==========
     os.makedirs(args.save_dir, exist_ok=True)
     lm_config_student = MiniMindConfig(
         hidden_size=args.student_hidden_size,
@@ -298,20 +298,20 @@ if __name__ == "__main__":
     )
     ckp_data = (
         lm_checkpoint(
-            lm_config_student, weight=args.save_weight, save_dir="../checkpoints"
+            lm_config_student, weight=args.save_weight, save_dir="checkpoints"
         )
         if args.from_resume == 1
         else None
     )
 
-    # ========== 3. 设置混合精度 ==========
+    # ========== 3. Set up mixed precision ==========
     device_type = "cuda" if "cuda" in args.device else "cpu"
     dtype = torch.bfloat16 if args.dtype == "bfloat16" else torch.float16
     autocast_ctx = (
         nullcontext() if device_type == "cpu" else torch.cuda.amp.autocast(dtype=dtype)
     )
 
-    # ========== 4. 配wandb ==========
+    # ========== 4. Configure wandb ==========
     wandb = None
     if args.use_wandb and is_main_process():
         import wandb
@@ -323,7 +323,7 @@ if __name__ == "__main__":
             project=args.wandb_project, name=wandb_run_name, id=wandb_id, resume=resume
         )
 
-    # ========== 5. 定义学生和教师模型 ==========
+    # ========== 5. Define student and teacher models ==========
     model, tokenizer = init_model(
         lm_config_student, args.from_student_weight, device=args.device
     )
@@ -331,7 +331,7 @@ if __name__ == "__main__":
         model = torch.compile(model)
         Logger("torch.compile enabled")
     Logger(
-        f"学生模型总参数量：{sum(p.numel() for p in model.parameters()) / 1e6:.3f} M"
+        f"Student model total parameters: {sum(p.numel() for p in model.parameters()) / 1e6:.3f} M"
     )
     teacher_model, _ = init_model(
         lm_config_teacher, args.from_teacher_weight, device=args.device
@@ -339,14 +339,14 @@ if __name__ == "__main__":
     teacher_model.eval()
     teacher_model.requires_grad_(False)
     Logger(
-        f"教师模型总参数量：{sum(p.numel() for p in teacher_model.parameters()) / 1e6:.3f} M"
+        f"Teacher model total parameters: {sum(p.numel() for p in teacher_model.parameters()) / 1e6:.3f} M"
     )
     train_ds = SFTDataset(args.data_path, tokenizer, max_length=args.max_seq_len)
     train_sampler = DistributedSampler(train_ds) if dist.is_initialized() else None
     scaler = torch.cuda.amp.GradScaler(enabled=(args.dtype == "float16"))
     optimizer = optim.AdamW(model.parameters(), lr=args.learning_rate)
 
-    # ========== 6. 从ckp恢复状态 ==========
+    # ========== 6. Resume state from checkpoint ==========
     start_epoch, start_step = 0, 0
     if ckp_data:
         model.load_state_dict(ckp_data["model"])
@@ -355,12 +355,12 @@ if __name__ == "__main__":
         start_epoch = ckp_data["epoch"]
         start_step = ckp_data.get("step", 0)
 
-    # ========== 7. DDP包模型 ==========
+    # ========== 7. Wrap model with DDP ==========
     if dist.is_initialized():
         model._ddp_params_and_buffers_to_ignore = {"freqs_cos", "freqs_sin"}
         model = DistributedDataParallel(model, device_ids=[local_rank])
 
-    # ========== 8. 开始训练 ==========
+    # ========== 8. Start training ==========
     for epoch in range(start_epoch, args.epochs):
         train_sampler and train_sampler.set_epoch(epoch)
         setup_seed(42 + epoch)
@@ -377,7 +377,7 @@ if __name__ == "__main__":
         )
         if skip > 0:
             Logger(
-                f"Epoch [{epoch + 1}/{args.epochs}]: 跳过前{start_step}个step，从step {start_step + 1}开始"
+                f"Epoch [{epoch + 1}/{args.epochs}]: Skipping first {start_step} steps, starting from step {start_step + 1}"
             )
             train_epoch(
                 epoch,
@@ -403,6 +403,6 @@ if __name__ == "__main__":
                 args.temperature,
             )
 
-    # ========== 9. 清理分布进程 ==========
+    # ========== 9. Cleanup distributed processes ==========
     if dist.is_initialized():
         dist.destroy_process_group()

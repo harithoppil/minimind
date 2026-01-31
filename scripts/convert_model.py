@@ -17,7 +17,7 @@ from model.model_minimind import MiniMindConfig, MiniMindForCausalLM
 warnings.filterwarnings("ignore", category=UserWarning)
 
 
-# MoE模型需使用此函数转换
+# MoE models need to use this function for conversion
 def convert_torch2transformers_minimind(
     torch_path, transformers_path, dtype=torch.float16
 ):
@@ -27,9 +27,9 @@ def convert_torch2transformers_minimind(
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     state_dict = torch.load(torch_path, map_location=device)
     lm_model.load_state_dict(state_dict, strict=False)
-    lm_model = lm_model.to(dtype)  # 转换模型权重精度
+    lm_model = lm_model.to(dtype)  # Convert model weight precision
     model_params = sum(p.numel() for p in lm_model.parameters() if p.requires_grad)
-    print(f"模型参数: {model_params / 1e6} 百万 = {model_params / 1e9} B (Billion)")
+    print(f"Model parameters: {model_params / 1e6} Million = {model_params / 1e9} B (Billion)")
     # Prepare tokenizer (GPT-2 based with ChatML)
     tokenizer = AutoTokenizer.from_pretrained("gpt2")
     special_tokens_dict = {
@@ -50,7 +50,7 @@ def convert_torch2transformers_minimind(
 
     lm_model.save_pretrained(transformers_path, safe_serialization=False)
     tokenizer.save_pretrained(transformers_path)
-    # 兼容transformers-5.0的写法
+    # Compatible with transformers-5.0 syntax
     config_path = os.path.join(transformers_path, "tokenizer_config.json")
     json.dump(
         {
@@ -62,10 +62,10 @@ def convert_torch2transformers_minimind(
         indent=2,
         ensure_ascii=False,
     )
-    print(f"模型已保存为 Transformers-MiniMind 格式: {transformers_path}")
+    print(f"Model saved in Transformers-MiniMind format: {transformers_path}")
 
 
-# LlamaForCausalLM结构兼容第三方生态
+# LlamaForCausalLM structure compatible with third-party ecosystems
 def convert_torch2transformers_llama(
     torch_path, transformers_path, dtype=torch.float16
 ):
@@ -85,10 +85,10 @@ def convert_torch2transformers_llama(
     )
     llama_model = LlamaForCausalLM(llama_config)
     llama_model.load_state_dict(state_dict, strict=False)
-    llama_model = llama_model.to(dtype)  # 转换模型权重精度
+    llama_model = llama_model.to(dtype)  # Convert model weight precision
     llama_model.save_pretrained(transformers_path)
     model_params = sum(p.numel() for p in llama_model.parameters() if p.requires_grad)
-    print(f"模型参数: {model_params / 1e6} 百万 = {model_params / 1e9} B (Billion)")
+    print(f"Model parameters: {model_params / 1e6} Million = {model_params / 1e9} B (Billion)")
 
     # Prepare tokenizer (GPT-2 based with ChatML)
     tokenizer = AutoTokenizer.from_pretrained("gpt2")
@@ -109,7 +109,7 @@ def convert_torch2transformers_llama(
     )
 
     tokenizer.save_pretrained(transformers_path)
-    # 兼容transformers-5.0的写法
+    # Compatible with transformers-5.0 syntax
     config_path = os.path.join(transformers_path, "tokenizer_config.json")
     json.dump(
         {
@@ -121,7 +121,7 @@ def convert_torch2transformers_llama(
         indent=2,
         ensure_ascii=False,
     )
-    print(f"模型已保存为 Transformers-Llama 格式: {transformers_path}")
+    print(f"Model saved in Transformers-Llama format: {transformers_path}")
 
 
 def convert_transformers2torch(transformers_path, torch_path):
@@ -129,7 +129,7 @@ def convert_transformers2torch(transformers_path, torch_path):
         transformers_path, trust_remote_code=True
     )
     torch.save(model.state_dict(), torch_path)
-    print(f"模型已保存为 PyTorch 格式: {torch_path}")
+    print(f"Model saved in PyTorch format: {torch_path}")
 
 
 if __name__ == "__main__":

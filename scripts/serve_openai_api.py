@@ -72,7 +72,7 @@ def init_model(args):
     # Resize embeddings if needed
     model.resize_token_embeddings(len(tokenizer))
     
-    print(f'MiniMind模型参数量: {sum(p.numel() for p in model.parameters()) / 1e6:.2f} M(illion)')
+    print(f'MiniMind model parameters: {sum(p.numel() for p in model.parameters()) / 1e6:.2f} M(illion)')
     return model.eval().to(device), tokenizer
 
 
@@ -191,16 +191,16 @@ async def chat_completions(request: ChatRequest):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Server for MiniMind")
-    parser.add_argument('--load_from', default='../model', type=str, help="模型加载路径（model=原生torch权重，其他路径=transformers格式）")
-    parser.add_argument('--save_dir', default='out', type=str, help="模型权重目录")
-    parser.add_argument('--weight', default='full_sft', type=str, help="权重名称前缀（pretrain, full_sft, dpo, reason, ppo_actor, grpo, spo）")
-    parser.add_argument('--lora_weight', default='None', type=str, help="LoRA权重名称（None表示不使用，可选：lora_identity, lora_medical）")
-    parser.add_argument('--hidden_size', default=512, type=int, help="隐藏层维度（512=Small-26M, 640=MoE-145M, 768=Base-104M）")
-    parser.add_argument('--num_hidden_layers', default=8, type=int, help="隐藏层数量（Small/MoE=8, Base=16）")
-    parser.add_argument('--max_seq_len', default=8192, type=int, help="最大序列长度")
-    parser.add_argument('--use_moe', default=0, type=int, choices=[0, 1], help="是否使用MoE架构（0=否，1=是）")
-    parser.add_argument('--inference_rope_scaling', default=False, action='store_true', help="启用RoPE位置编码外推（4倍，仅解决位置编码问题）")
-    parser.add_argument('--device', default='cuda' if torch.cuda.is_available() else 'cpu', type=str, help="运行设备")
+    parser.add_argument('--load_from', default='../model', type=str, help="Model load path (model=native torch weights, other path=transformers format)")
+    parser.add_argument('--save_dir', default='out', type=str, help="Model weights directory")
+    parser.add_argument('--weight', default='full_sft', type=str, help="Weight name prefix (pretrain, full_sft, dpo, reason, ppo_actor, grpo, spo)")
+    parser.add_argument('--lora_weight', default='None', type=str, help="LoRA weight name (None means not used, options: lora_identity, lora_medical)")
+    parser.add_argument('--hidden_size', default=512, type=int, help="Hidden layer dimension (512=Small-26M, 640=MoE-145M, 768=Base-104M)")
+    parser.add_argument('--num_hidden_layers', default=8, type=int, help="Number of hidden layers (Small/MoE=8, Base=16)")
+    parser.add_argument('--max_seq_len', default=8192, type=int, help="Maximum sequence length")
+    parser.add_argument('--use_moe', default=0, type=int, choices=[0, 1], help="Whether to use MoE architecture (0=no, 1=yes)")
+    parser.add_argument('--inference_rope_scaling', default=False, action='store_true', help="Enable RoPE position encoding extrapolation (4x, only solves position encoding problem)")
+    parser.add_argument('--device', default='cuda' if torch.cuda.is_available() else 'cpu', type=str, help="Running device")
     args = parser.parse_args()
     device = args.device
     model, tokenizer = init_model(args)
