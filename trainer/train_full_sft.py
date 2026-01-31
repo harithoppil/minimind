@@ -269,8 +269,8 @@ if __name__ == "__main__":
     start_epoch, start_step = 0, 0
     if ckp_data:
         model.load_state_dict(ckp_data["model"],strict=False)
-        optimizer.load_state_dict(ckp_data["optimizer"],strict=False)
-        scaler.load_state_dict(ckp_data["scaler"],strict=False)
+        optimizer.load_state_dict(ckp_data["optimizer"])
+        scaler.load_state_dict(ckp_data["scaler"])
         start_epoch = ckp_data["epoch"]
         start_step = ckp_data.get("step", 0)
 
