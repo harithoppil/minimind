@@ -186,10 +186,10 @@ def init_model(
     lm_config.bos_token_id = tokenizer.bos_token_id
     lm_config.eos_token_id = tokenizer.eos_token_id
 
-    model = MiniMindForCausalLM(lm_config)
-
     if isinstance(lm_config, TempModelConfig):
         model = TempModelForCausalLM(lm_config)
+    else:
+        model = MiniMindForCausalLM(lm_config)
 
     if from_weight != "none":
         moe_suffix = "_moe" if getattr(lm_config, "use_moe", False) else ""
