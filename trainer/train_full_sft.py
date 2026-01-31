@@ -128,6 +128,7 @@ if __name__ == "__main__":
     parser.add_argument("--save_interval", type=int, default=1000, help="Model save interval")
     parser.add_argument("--hidden_size", default=512, type=int, help="Hidden layer dimension")
     parser.add_argument("--num_hidden_layers", default=8, type=int, help="Number of hidden layers")
+    parser.add_argument("--num_attention_heads", default=4, type=int, help="Number of attention heads")
     parser.add_argument(
         "--max_seq_len",
         default=340,
@@ -165,6 +166,12 @@ if __name__ == "__main__":
         default=2,
         type=int,
         help="Number of experts per token for TempModel",
+    )
+    parser.add_argument(
+        "--v_head_expansion",
+        default=2,
+        type=int,
+        help="Expansion factor for V-head MLP (default 2)",
     )
     parser.add_argument(
         "--data_path",
@@ -210,11 +217,13 @@ if __name__ == "__main__":
         lm_config = TempModelConfig(
             hidden_size=args.hidden_size,
             num_hidden_layers=args.num_hidden_layers,
+            num_attention_heads=args.num_attention_heads,
             n_routed_experts=args.n_routed_experts,
             n_shared_experts=args.n_shared_experts,
             num_experts_per_tok=args.num_experts_per_tok,
+            v_head_expansion=args.v_head_expansion,
         )
-        Logger(f"Using TempModel with {args.n_routed_experts} routed + {args.n_shared_experts} shared experts")
+        Logger(f"Using TempModel with {args.n_routed_experts} routed + {args.n_shared_experts} shared experts, V-exp={args.v_head_expansion}")
     else:
         lm_config = MiniMindConfig(
             hidden_size=args.hidden_size,

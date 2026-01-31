@@ -130,7 +130,7 @@ class TempModelConfig(PretrainedConfig):
             hidden_size: int = 512,
             intermediate_size: int = None,
             max_position_embeddings: int = 32768,
-            num_attention_heads: int = 8,
+            num_attention_heads: int = 4,
             num_hidden_layers: int = 8,
             num_key_value_heads: int = 2,
             vocab_size: int = 50257,
@@ -166,6 +166,7 @@ class TempModelConfig(PretrainedConfig):
         # MoE config
         self.use_moe = use_moe
         self.num_experts_per_tok = num_experts_per_tok
+        self.v_head_expansion = v_head_expansion
         self.n_routed_experts = n_routed_experts
         self.n_shared_experts = n_shared_experts
         self.scoring_func = scoring_func
@@ -225,9 +226,9 @@ class Attention(nn.Module):
             nn.Linear(config.hidden_size, k_out_dim, bias=False)
         )
         
-        # V projection: MLP with 4x expansion (hidden -> 4*hidden -> v_dim)
+        # V projection: MLP with configurable expansion (default 2x)
         # V does NOT go through PoPE, so output stays at head_dim
-        v_intermediate = config.hidden_size * 4
+        v_intermediate = config.hidden_size * config.v_head_expansion
         self.v_proj = nn.Sequential(
             nn.Linear(config.hidden_size, v_intermediate, bias=False),
             nn.SiLU(),
