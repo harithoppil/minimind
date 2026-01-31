@@ -259,22 +259,29 @@ if __name__ == "__main__":
 
     # ========== 5. Define model, data, optimizer ==========
     model, tokenizer = init_model(lm_config, args.from_weight, device=args.device)
+    
+    # ========== 6. Resume model weights from checkpoint (BEFORE compile!) ==========
+    start_epoch, start_step = 0, 0
+    if ckp_data:
+        model.load_state_dict(ckp_data["model"], strict=True)
+        Logger("Resumed model weights from checkpoint")
+        start_epoch = ckp_data["epoch"]
+        start_step = ckp_data.get("step", 0)
+    
+    # Compile AFTER loading checkpoint
     if args.use_compile == 1:
         model = torch.compile(model)
         Logger("torch.compile enabled")
+    
     train_ds = PretrainDataset(args.data_path, tokenizer, max_length=args.max_seq_len)
     train_sampler = DistributedSampler(train_ds) if dist.is_initialized() else None
     scaler = torch.cuda.amp.GradScaler(enabled=(args.dtype == "float16"))
     optimizer = optim.AdamW(model.parameters(), lr=args.learning_rate)
-
-    # ========== 6. Resume state from checkpoint ==========
-    start_epoch, start_step = 0, 0
+    
+    # Resume optimizer/scaler state (after optimizer is created)
     if ckp_data:
-        model.load_state_dict(ckp_data["model"],strict=False)
         optimizer.load_state_dict(ckp_data["optimizer"])
         scaler.load_state_dict(ckp_data["scaler"])
-        start_epoch = ckp_data["epoch"]
-        start_step = ckp_data.get("step", 0)
 
     # ========== 7. Wrap model with DDP ==========
     if dist.is_initialized():
