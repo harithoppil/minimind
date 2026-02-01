@@ -9,6 +9,7 @@
 
 import math
 import torch
+import torch._dynamo
 import torch.nn.init as init
 import torch.nn as nn
 import torch.nn.functional as F
@@ -59,16 +60,17 @@ class RoutingInfo:
 def precompute_pope_freqs(dim: int, end: int = 32768, theta: float = 10000.0):
     """
     Precompute cos/sin frequencies for PoPE.
-    Same frequency computation as RoPE, but used differently.
+    
+    DIFFERENT FROM RoPE:
+    - RoPE uses paired frequencies (every other dim) for rotation
+    - PoPE uses full dimension frequencies since we're applying magnitude * phase
     """
-    freqs = 1.0 / (theta ** (torch.arange(0, dim, 2)[: (dim // 2)].float() / dim))
+    # Full dimension range (NOT strided like RoPE)
+    freqs = 1.0 / (theta ** (torch.arange(0, dim, 1).float() / dim))
     t = torch.arange(end)
     freqs = torch.outer(t, freqs).float()
-    freqs_cos = torch.cos(freqs)
-    freqs_sin = torch.sin(freqs)
-    # Expand to full dim by repeating each frequency
-    freqs_cos = freqs_cos.repeat_interleave(2, dim=-1)  # [end, dim]
-    freqs_sin = freqs_sin.repeat_interleave(2, dim=-1)  # [end, dim]
+    freqs_cos = torch.cos(freqs)  # [end, dim]
+    freqs_sin = torch.sin(freqs)  # [end, dim]
     return freqs_cos, freqs_sin
 
 
@@ -241,6 +243,9 @@ class Attention(nn.Module):
         self.W_bilinear = nn.Parameter(torch.empty(config.num_attention_heads, self.pope_dim, self.pope_dim))
         self._init_bilinear_weights()
         
+        # Per-head normalization AFTER bilinear transformation (stabilizes LogicGrad training)
+        self.bilinear_norm = RMSNorm(self.pope_dim, eps=config.rms_norm_eps)
+        
         # Output projection: from pope_dim back to hidden_size
         self.o_proj = nn.Linear(config.num_attention_heads * self.pope_dim, config.hidden_size, bias=False)
         
@@ -256,7 +261,7 @@ class Attention(nn.Module):
             for h in range(self.num_attention_heads):
                 nn.init.eye_(self.W_bilinear[h])
             # Add small noise for symmetry breaking
-            self.W_bilinear.add_(torch.randn_like(self.W_bilinear) * 0.02)
+            self.W_bilinear.add_(torch.randn_like(self.W_bilinear) * 0.01)
 
     def forward(
             self,
@@ -327,16 +332,20 @@ class Attention(nn.Module):
         xk = repeat_kv(xk, self.n_rep).transpose(1, 2)  # [bsz, n_heads, attend_len, pope_dim]
         xv = repeat_kv(xv, self.n_rep).transpose(1, 2)  # [bsz, n_heads, attend_len, head_dim]
         
-        # ========== Bilinear Attention: silu(Q @ W) @ K^T ==========
+        # ========== Bilinear Attention: silu(norm(Q @ W)) @ K^T ==========
         # Apply bilinear transformation: Q @ W per head
         # xq: (bsz, n_heads, seq_len, pope_dim)
         # W_bilinear: (n_heads, pope_dim, pope_dim)
         q_transformed = torch.einsum("bhld,hde->bhle", xq, self.W_bilinear)
         
-        # Apply SiLU activation during comparison (the "smart ruler" non-linearity)
-        q_activated = F.silu(q_transformed)
+        # Normalize before SiLU to stabilize training (especially with LogicGrad)
+        # Apply per-position normalization: [bsz, n_heads, seq_len, pope_dim] -> normalize last dim
+        q_normalized = self.bilinear_norm(q_transformed)
         
-        # Compute attention scores: silu(Q @ W) @ K^T
+        # Apply SiLU activation during comparison (the "smart ruler" non-linearity)
+        q_activated = F.silu(q_normalized)
+        
+        # Compute attention scores: silu(norm(Q @ W)) @ K^T
         # Note: K may be filtered, so attend_len <= full_seq_len
         scale_factor = 1.0 / math.sqrt(self.pope_dim)
         scores = (q_activated @ xk.transpose(-2, -1)) * scale_factor
@@ -736,26 +745,37 @@ class ResidualGate(nn.Module):
 class TempModelBlock(nn.Module):
     """
     Single transformer block for TempModel.
-    Uses MoEAttention (with Attention experts) instead of standard attention.
     
-    NO standalone MLP - MLPs are only inside:
-    1. Attention (Q/K/V projections with expansion)
-    2. Router gate (4x expansion MLP for routing decisions)
+    Supports two modes:
+    - Dense (use_moe=False): Standard Attention (all tokens visible) + MLP
+    - MoE (use_moe=True): MoEAttention with sparse attention experts
     
-    Structure:
-        x → LayerNorm → MoEAttention → residual
+    Both modes use:
+    - PoPE (Polar Position Encoding)
+    - MLP-based Q/K/V projections
+    - Bilinear attention with SiLU: silu(Q @ W) @ K^T
+    - ResidualGate mechanism (handled at TempModel level)
     """
     def __init__(self, layer_id: int, config: TempModelConfig):
         super().__init__()
         self.layer_id = layer_id
         self.config = config
         self.hidden_size = config.hidden_size
+        self.use_moe = config.use_moe
         
         # Pre-attention layer norm
         self.input_layernorm = RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
         
-        # MoE Attention - each expert is an Attention layer with sparse routing
-        self.moe_attn = MoEAttention(config, layer_id=layer_id)
+        if self.use_moe:
+            # MoE mode: Attention experts with sparse routing
+            self.moe_attn = MoEAttention(config, layer_id=layer_id)
+        else:
+            # Dense mode: Standard attention (all tokens visible)
+            self.self_attn = Attention(config, layer_id=layer_id, expert_id=-1)
+            # Post-attention layer norm for MLP
+            self.post_attention_layernorm = RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
+            # Feed-forward MLP
+            self.mlp = MLP(config)
         
         self.aux_loss = None
 
@@ -773,22 +793,45 @@ class TempModelBlock(nn.Module):
         
         Returns:
             hidden_states: Output tensor
-            present_key_values: KV caches for each expert
-            routing_info: Routing decisions for this layer
+            present_key_values: KV caches (per-expert for MoE, single for dense)
+            routing_info: Routing decisions for this layer (None for dense mode)
         """
-        # Attention with residual (no MLP after)
-        residual = hidden_states
-        hidden_states, present_key_values, routing_info = self.moe_attn(
-            self.input_layernorm(hidden_states),
-            position_embeddings,
-            past_key_values=past_key_values,
-            use_cache=use_cache,
-            routing_history=routing_history
-        )
-        hidden_states = residual + hidden_states
-        
-        # Store aux loss from MoE
-        self.aux_loss = self.moe_attn.aux_loss
+        if self.use_moe:
+            # ========== MoE Mode: Sparse Attention Experts ==========
+            residual = hidden_states
+            hidden_states, present_key_values, routing_info = self.moe_attn(
+                self.input_layernorm(hidden_states),
+                position_embeddings,
+                past_key_values=past_key_values,
+                use_cache=use_cache,
+                routing_history=routing_history
+            )
+            hidden_states = residual + hidden_states
+            
+            # Store aux loss from MoE
+            self.aux_loss = self.moe_attn.aux_loss
+        else:
+            # ========== Dense Mode: Standard Attention + MLP ==========
+            # Attention with residual
+            residual = hidden_states
+            hidden_states, present_key_values = self.self_attn(
+                self.input_layernorm(hidden_states),
+                position_embeddings,
+                past_key_value=past_key_values,
+                use_cache=use_cache,
+                attention_mask=attention_mask,
+                attend_indices=None,  # All tokens visible in dense mode
+                routing_history=routing_history
+            )
+            hidden_states = residual + hidden_states
+            
+            # MLP with residual
+            residual = hidden_states
+            hidden_states = residual + self.mlp(self.post_attention_layernorm(hidden_states))
+            
+            # No routing in dense mode
+            routing_info = None
+            self.aux_loss = hidden_states.new_zeros(1).squeeze()
         
         return hidden_states, present_key_values, routing_info
 

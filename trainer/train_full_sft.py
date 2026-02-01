@@ -26,6 +26,7 @@ from trainer.trainer_utils import (
     init_model,
     SkipBatchSampler,
 )
+from trainer.logicgrad import LogicGrad, create_dual_optimizer
 
 warnings.filterwarnings("ignore")
 
@@ -52,6 +53,11 @@ def train_epoch(epoch, loader, iters, start_step=0, wandb=None):
 
             scaler.step(optimizer)
             scaler.update()
+            
+            # Step LogicGrad if using dual optimizers
+            if optimizer_logic is not None:
+                optimizer_logic.step()
+                optimizer_logic.zero_grad(set_to_none=True)
 
             optimizer.zero_grad(set_to_none=True)
 
@@ -203,6 +209,19 @@ if __name__ == "__main__":
         choices=[0, 1],
         help="Whether to use torch.compile acceleration (0=no, 1=yes)",
     )
+    parser.add_argument(
+        "--use_logicgrad",
+        default=0,
+        type=int,
+        choices=[0, 1],
+        help="Use LogicGrad optimizer for W_bilinear matrices (0=AdamW only, 1=dual optimizer)",
+    )
+    parser.add_argument(
+        "--logic_lr",
+        default=0.05,
+        type=float,
+        help="Learning rate for LogicGrad optimizer (only used if --use_logicgrad=1)",
+    )
     args = parser.parse_args()
 
     # ========== 1. Initialize environment and random seed ==========
@@ -274,7 +293,16 @@ if __name__ == "__main__":
     train_ds = SFTDataset(args.data_path, tokenizer, max_length=args.max_seq_len)
     train_sampler = DistributedSampler(train_ds) if dist.is_initialized() else None
     scaler = torch.cuda.amp.GradScaler(enabled=(args.dtype == "float16"))
-    optimizer = optim.AdamW(model.parameters(), lr=args.learning_rate)
+    
+    # Create optimizer(s) based on --use_logicgrad flag
+    if args.use_logicgrad == 1 and args.use_tempmodel == 1:
+        optimizer_logic, optimizer = create_dual_optimizer(
+            model, adam_lr=args.learning_rate, logic_lr=args.logic_lr
+        )
+        Logger(f"Using dual optimizer: LogicGrad (lr={args.logic_lr}) + AdamW (lr={args.learning_rate})")
+    else:
+        optimizer_logic = None
+        optimizer = optim.AdamW(model.parameters(), lr=args.learning_rate)
     
     # Resume optimizer/scaler state (after optimizer is created)
     if ckp_data:
