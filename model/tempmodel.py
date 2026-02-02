@@ -225,9 +225,14 @@ class Attention(nn.Module):
         # K projection: Linear (standard)
         self.k_proj = nn.Linear(config.hidden_size, k_out_dim, bias=False)
         
-        # V projection: Linear (standard)
+        # V projection: MLP with configurable expansion (default 2x)
         # V does NOT go through PoPE, so output stays at head_dim
-        self.v_proj = nn.Linear(config.hidden_size, v_out_dim, bias=False)
+        v_intermediate = config.hidden_size * config.v_head_expansion
+        self.v_proj = nn.Sequential(
+            nn.Linear(config.hidden_size, v_intermediate, bias=False),
+            nn.SiLU(),
+            nn.Linear(v_intermediate, v_out_dim, bias=False)
+        )
         
         # Bilinear interaction matrix W: per-head learned transformation
         # Shape: (n_heads, pope_dim, pope_dim) - works on PoPE-expanded Q
@@ -985,6 +990,11 @@ class TempModelForCausalLM(PreTrainedModel, GenerationMixin):
         
         # Weight tying: embed_tokens and lm_head share weights
         self.model.embed_tokens.weight = self.lm_head.weight
+        
+        # EXPERIMENT: Freeze embeddings and LM head
+        # This forces the model to learn solely through the internal non-linear layers (MLP + Attention)
+        # effectively treating the random embeddings as fixed input features.
+        self.lm_head.weight.requires_grad = False
 
     def forward(
             self,
