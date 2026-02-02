@@ -320,6 +320,13 @@ if __name__ == "__main__":
     if ckp_data:
         optimizer.load_state_dict(ckp_data["optimizer"])
         scaler.load_state_dict(ckp_data["scaler"])
+        
+        # Explicitly enforce args.learning_rate over checkpoint LR
+        if args.from_resume == 1:
+            for param_group in optimizer.param_groups:
+                param_group['lr'] = args.learning_rate
+            Logger(f"Resume: Overriding optimizer LR with argument value: {args.learning_rate}")
+            
         # Note: LogicGrad state is not saved/restored (momentum buffer)
 
     # ========== 7. Wrap model with DDP ==========
